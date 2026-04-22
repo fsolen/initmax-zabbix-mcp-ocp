@@ -164,8 +164,8 @@ print(f'scrypt:16384:8:1\${salt.hex()}\${hash_bytes.hex()}')
     echo ""
     echo "$HASH"
     echo ""
-    log_info "Add this to your secret.yaml as ADMIN_PASSWORD_HASH"
-    log_info "Or run: $0 set-admin-password"
+    log_info "ConfigMap'teki password_hash değerini bu hash ile güncelleyin"
+    log_info "Veya çalışan cluster için: $0 set-admin-password"
 }
 
 set_admin_password() {
@@ -194,13 +194,19 @@ hash_bytes = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1, dkl
 print(f'scrypt:16384:8:1\${salt.hex()}\${hash_bytes.hex()}')
 ")
     
-    # Get existing secret and patch with new hash
-    oc patch secret zabbix-mcp-secret -n "$NAMESPACE" \
-        --type='json' \
-        -p="[{\"op\": \"replace\", \"path\": \"/stringData/ADMIN_PASSWORD_HASH\", \"value\": \"$HASH\"}]" 2>/dev/null || \
-    oc patch secret zabbix-mcp-secret -n "$NAMESPACE" \
-        --type='merge' \
-        -p="{\"stringData\": {\"ADMIN_PASSWORD_HASH\": \"$HASH\"}}"
+    # ConfigMap'teki config.toml'u güncelle
+    log_info "Updating ConfigMap..."
+    
+    # Mevcut config.toml'u al
+    CONFIG=$(oc get configmap zabbix-mcp-config -n "$NAMESPACE" -o jsonpath='{.data.config\.toml}')
+    
+    # password_hash satırını güncelle
+    NEW_CONFIG=$(echo "$CONFIG" | sed "s|password_hash = \".*\"|password_hash = \"$HASH\"|g")
+    
+    # ConfigMap'i güncelle
+    oc create configmap zabbix-mcp-config \
+        --from-literal="config.toml=$NEW_CONFIG" \
+        --dry-run=client -o yaml | oc apply -n "$NAMESPACE" -f -
     
     log_info "Admin password updated. Restarting deployment..."
     oc rollout restart deployment/zabbix-mcp-server -n "$NAMESPACE"

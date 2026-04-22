@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zabbix-mcp-config
+  namespace: zabbix-mcp-server
+  labels:
+    app.kubernetes.io/name: zabbix-mcp-server
+    app.kubernetes.io/component: config
+data:
+  config.toml: |
+    # ==========================================================================
+    # Zabbix MCP Server Configuration
+    # https://github.com/initMAX/zabbix-mcp-server
+    # ==========================================================================
+    # ConfigMap'ten mount edilir. Güncellemek için:
+    #   oc edit configmap zabbix-mcp-config -n zabbix-mcp-server
+    #   oc rollout restart deployment/zabbix-mcp-server -n zabbix-mcp-server
+    # ==========================================================================
+
+    [server]
+    transport = "http"
+    host = "0.0.0.0"
+    port = 8080
+    log_level = "info"
+    
+    # MCP Authentication - Secret'tan env var olarak gelir
+    # auth_token = "${MCP_AUTH_TOKEN}"
+    
+    rate_limit = 300
+    compact_output = true
+    response_max_chars = 50000
+    
+    # Tool filtering
+    # tools = ["monitoring", "data_collection", "alerts"]
+    # disabled_tools = ["users", "administration"]
+    
+    # CORS
+    # cors_origins = ["https://your-app.example.com"]
+
+    # -------------------------------------------------------------------------
+    # Admin Portal
+    # -------------------------------------------------------------------------
+    [admin]
+    enabled = true
+    port = 9090
+
+    # -------------------------------------------------------------------------
+    # Zabbix Servers
+    # -------------------------------------------------------------------------
+    [zabbix.production]
+    url = "https://zabbix.example.com"
+    api_token = "${ZABBIX_PRODUCTION_TOKEN}"
+    read_only = true
+    verify_ssl = true
+
+    # [zabbix.staging]
+    # url = "https://zabbix-staging.example.com"
+    # api_token = "${ZABBIX_STAGING_TOKEN}"
+    # read_only = false
+    # verify_ssl = false
+
+    # -------------------------------------------------------------------------
+    # MCP Tokens
+    # -------------------------------------------------------------------------
+    # Token hash oluşturmak için:
+    # python3 -c "import secrets,hashlib; t='zmcp_'+secrets.token_hex(32); \
+    #   print(f'Token: {t}\nHash: sha256:{hashlib.sha256(t.encode()).hexdigest()}')"
+    #
+    # [tokens.claude]
+    # name = "Claude"
+    # token_hash = "sha256:..."
+    # scopes = ["monitoring"]
+    # read_only = true

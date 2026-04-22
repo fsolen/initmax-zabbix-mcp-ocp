@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: zabbix-mcp-server
+  namespace: zabbix-mcp-server
+  labels:
+    app.kubernetes.io/name: zabbix-mcp-server
+    app.kubernetes.io/component: mcp
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: mcp
+    - port: 9090
+      targetPort: 9090
+      protocol: TCP
+      name: admin
+  selector:
+    app.kubernetes.io/name: zabbix-mcp-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zabbix-mcp-server
+  namespace: zabbix-mcp-server
+  labels:
+    app.kubernetes.io/name: zabbix-mcp-server
+    app.kubernetes.io/component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zabbix-mcp-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zabbix-mcp-server
+      annotations:
+        # ConfigMap değiştiğinde pod restart için
+        checksum/config: "PLACEHOLDER"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: default
+      containers:
+        - name: server
+          image: zabbix-mcp-server:latest
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - containerPort: 8080
+              name: mcp
+              protocol: TCP
+            - containerPort: 9090
+              name: admin
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: zabbix-mcp-secret
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: config
+              mountPath: /etc/zabbix-mcp
+              readOnly: true
+            - name: logs
+              mountPath: /var/log/zabbix-mcp
+            - name: templates
+              mountPath: /etc/zabbix-mcp/templates
+            - name: assets
+              mountPath: /etc/zabbix-mcp/assets
+      volumes:
+        - name: config
+          configMap:
+            name: zabbix-mcp-config
+        - name: logs
+          emptyDir: {}
+        - name: templates
+          emptyDir: {}
+        - name: assets
+          emptyDir: {}

@@ -1,0 +1,54 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: zabbix-mcp-server
+  namespace: zabbix-mcp-server
+  labels:
+    app.kubernetes.io/name: zabbix-mcp-server
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+    - name: latest
+      annotations:
+        description: "Latest build"
+        openshift.io/display-name: "Zabbix MCP Server (latest)"
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: zabbix-mcp-server
+  namespace: zabbix-mcp-server
+  labels:
+    app.kubernetes.io/name: zabbix-mcp-server
+    app.kubernetes.io/component: build
+spec:
+  source:
+    type: Git
+    git:
+      uri: "https://github.com/initMAX/zabbix-mcp-server.git"
+      ref: "main"
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+      env:
+        - name: PIP_INDEX_URL
+          value: "https://pypi.org/simple"
+  output:
+    to:
+      kind: ImageStreamTag
+      name: "zabbix-mcp-server:latest"
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange
+  resources:
+    limits:
+      memory: "2Gi"
+      cpu: "2"
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+  runPolicy: Serial
+  successfulBuildsHistoryLimit: 3
+  failedBuildsHistoryLimit: 3

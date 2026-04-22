@@ -1,0 +1,9 @@
+apiVersion: project.openshift.io/v1
+kind: Project
+metadata:
+  name: zabbix-mcp-server
+  labels:
+    app.kubernetes.io/name: zabbix-mcp-server
+  annotations:
+    openshift.io/description: "Zabbix MCP Server - Full Zabbix API access for AI assistants"
+    openshift.io/display-name: "Zabbix MCP Server"

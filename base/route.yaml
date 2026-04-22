@@ -1,0 +1,47 @@
+# MCP Endpoint Route
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: zabbix-mcp
+  namespace: zabbix-mcp-server
+  labels:
+    app.kubernetes.io/name: zabbix-mcp-server
+    app.kubernetes.io/component: mcp
+  annotations:
+    haproxy.router.openshift.io/timeout: 120s
+spec:
+  host: zabbix-mcp.apps.cluster.example.com  # Cluster domain'inize göre güncelleyin
+  to:
+    kind: Service
+    name: zabbix-mcp-server
+    weight: 100
+  port:
+    targetPort: mcp
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+---
+# Admin Portal Route
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: zabbix-mcp-admin
+  namespace: zabbix-mcp-server
+  labels:
+    app.kubernetes.io/name: zabbix-mcp-server
+    app.kubernetes.io/component: admin
+  annotations:
+    haproxy.router.openshift.io/timeout: 60s
+spec:
+  host: zabbix-mcp-admin.apps.cluster.example.com  # Cluster domain'inize göre güncelleyin
+  to:
+    kind: Service
+    name: zabbix-mcp-server
+    weight: 100
+  port:
+    targetPort: admin
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

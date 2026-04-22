@@ -44,6 +44,16 @@ data:
     enabled = true
     port = 9090
 
+    # Admin kullanıcıları
+    # Password hash oluşturmak için:
+    #   python3 -c "import hashlib,os; s=os.urandom(16); p=input('Password: '); \
+    #     print(f'scrypt:16384:8:1\${s.hex()}\${hashlib.scrypt(p.encode(),salt=s,n=16384,r=8,p=1,dklen=32).hex()}')"
+    #
+    # Veya deploy.sh generate-admin-password kullanın
+    [admin.users.admin]
+    password_hash = "${ADMIN_PASSWORD_HASH}"
+    role = "admin"
+
     # -------------------------------------------------------------------------
     # Zabbix Servers
     # -------------------------------------------------------------------------

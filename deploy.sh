@@ -23,19 +23,22 @@ usage() {
 Usage: $0 <command>
 
 Commands:
-  deploy      Deploy/update all resources
-  build       Start a new build
-  status      Show deployment status
-  logs        Show server logs
-  secret      Update secret interactively
-  config      Edit configmap
-  restart     Restart deployment
-  delete      Delete all resources
+  deploy                  Deploy/update all resources
+  build                   Start a new build
+  status                  Show deployment status
+  logs                    Show server logs
+  secret                  Update secret interactively
+  config                  Edit configmap
+  restart                 Restart deployment
+  delete                  Delete all resources
+  generate-admin-password Generate admin password hash
+  set-admin-password      Set admin password in secret
 
 Examples:
   $0 deploy
   $0 build
   $0 logs -f
+  $0 generate-admin-password
 EOF
 }
 
@@ -124,17 +127,101 @@ delete_all() {
     fi
 }
 
-# Main
-check_oc
+generate_admin_password() {
+    log_info "Generating admin password hash..."
+    echo ""
+    
+    if ! command -v python3 &> /dev/null; then
+        log_error "python3 not found"
+        exit 1
+    fi
+    
+    read -p "Enter admin password: " -s PASSWORD
+    echo ""
+    read -p "Confirm password: " -s PASSWORD2
+    echo ""
+    
+    if [[ "$PASSWORD" != "$PASSWORD2" ]]; then
+        log_error "Passwords do not match"
+        exit 1
+    fi
+    
+    if [[ ${#PASSWORD} -lt 10 ]]; then
+        log_error "Password must be at least 10 characters"
+        exit 1
+    fi
+    
+    HASH=$(python3 -c "
+import hashlib, os
+salt = os.urandom(16)
+password = '''$PASSWORD'''
+hash_bytes = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1, dklen=32)
+print(f'scrypt:16384:8:1\${salt.hex()}\${hash_bytes.hex()}')
+")
+    
+    echo ""
+    log_info "Password hash generated:"
+    echo ""
+    echo "$HASH"
+    echo ""
+    log_info "Add this to your secret.yaml as ADMIN_PASSWORD_HASH"
+    log_info "Or run: $0 set-admin-password"
+}
 
+set_admin_password() {
+    log_info "Setting admin password..."
+    
+    read -p "Enter admin password: " -s PASSWORD
+    echo ""
+    read -p "Confirm password: " -s PASSWORD2
+    echo ""
+    
+    if [[ "$PASSWORD" != "$PASSWORD2" ]]; then
+        log_error "Passwords do not match"
+        exit 1
+    fi
+    
+    if [[ ${#PASSWORD} -lt 10 ]]; then
+        log_error "Password must be at least 10 characters"
+        exit 1
+    fi
+    
+    HASH=$(python3 -c "
+import hashlib, os
+salt = os.urandom(16)
+password = '''$PASSWORD'''
+hash_bytes = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1, dklen=32)
+print(f'scrypt:16384:8:1\${salt.hex()}\${hash_bytes.hex()}')
+")
+    
+    # Get existing secret and patch with new hash
+    oc patch secret zabbix-mcp-secret -n "$NAMESPACE" \
+        --type='json' \
+        -p="[{\"op\": \"replace\", \"path\": \"/stringData/ADMIN_PASSWORD_HASH\", \"value\": \"$HASH\"}]" 2>/dev/null || \
+    oc patch secret zabbix-mcp-secret -n "$NAMESPACE" \
+        --type='merge' \
+        -p="{\"stringData\": {\"ADMIN_PASSWORD_HASH\": \"$HASH\"}}"
+    
+    log_info "Admin password updated. Restarting deployment..."
+    oc rollout restart deployment/zabbix-mcp-server -n "$NAMESPACE"
+}
+
+# Main
 case "${1:-}" in
-    deploy)  deploy ;;
-    build)   build ;;
-    status)  status ;;
-    logs)    shift; logs "$@" ;;
-    secret)  update_secret ;;
-    config)  edit_config ;;
-    restart) restart ;;
-    delete)  delete_all ;;
-    *)       usage; exit 1 ;;
+    generate-admin-password) generate_admin_password ;;
+    *)
+        check_oc
+        case "${1:-}" in
+            deploy)  deploy ;;
+            build)   build ;;
+            status)  status ;;
+            logs)    shift; logs "$@" ;;
+            secret)  update_secret ;;
+            config)  edit_config ;;
+            restart) restart ;;
+            delete)  delete_all ;;
+            set-admin-password) set_admin_password ;;
+            *)       usage; exit 1 ;;
+        esac
+        ;;
 esac

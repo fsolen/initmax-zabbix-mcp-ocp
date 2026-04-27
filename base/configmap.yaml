@@ -47,8 +47,9 @@ data:
     # Admin kullanıcıları
     # Password hash oluşturmak için: ./deploy.sh generate-admin-password
     # Sonra aşağıdaki password_hash değerini güncelleyin
+    # Örnek şifre: Admin12345! (production'da değiştirin!)
     [admin.users.admin]
-    password_hash = "REPLACE_WITH_GENERATED_HASH"
+    password_hash = "scrypt:16384:8:1$fc3012dff121ea08783eb48d91a636e2$b3798b4e712fc051d49adbeb163e7aa3017ed57127221f95981648259d70ed93"
     role = "admin"
 
     # -------------------------------------------------------------------------

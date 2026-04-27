@@ -44,6 +44,27 @@ spec:
       securityContext:
         runAsNonRoot: true
       serviceAccountName: default
+      initContainers:
+        # ConfigMap'ten config.toml'u writable volume'a kopyala
+        - name: init-config
+          image: zabbix-mcp-server:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              cp /config-readonly/config.toml /etc/zabbix-mcp/config.toml
+              chmod 644 /etc/zabbix-mcp/config.toml
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: config-readonly
+              mountPath: /config-readonly
+              readOnly: true
+            - name: config-writable
+              mountPath: /etc/zabbix-mcp
       containers:
         - name: server
           image: zabbix-mcp-server:latest
@@ -87,22 +108,15 @@ spec:
             timeoutSeconds: 3
             failureThreshold: 3
           volumeMounts:
-            - name: config
+            - name: config-writable
               mountPath: /etc/zabbix-mcp
-              readOnly: true
             - name: logs
               mountPath: /var/log/zabbix-mcp
-            - name: templates
-              mountPath: /etc/zabbix-mcp/templates
-            - name: assets
-              mountPath: /etc/zabbix-mcp/assets
       volumes:
-        - name: config
+        - name: config-readonly
           configMap:
             name: zabbix-mcp-config
+        - name: config-writable
+          emptyDir: {}
         - name: logs
-          emptyDir: {}
-        - name: templates
-          emptyDir: {}
-        - name: assets
           emptyDir: {}
